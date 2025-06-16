@@ -4,7 +4,7 @@ DOCUSAURUS_REPO="docusaurus-repo"
 cp -R $KOTLIN_REPO/build/dokka/htmlMultiModule/* $DOCUSAURUS_REPO/static/kdocs/
 echo "KDocs copied to Docusaurus static/api directory"
 
-cp $KOTLIN_REPO/README.md                   $DOCUSAURUS_REPO/overview/0-overview.md
+cp $KOTLIN_REPO/README.md                   $DOCUSAURUS_REPO/docs/index.md
 cp $KOTLIN_REPO/CHANGELOG.md                $DOCUSAURUS_REPO/changelog/0-changelog.md
 
 cp $KOTLIN_REPO/docs/contributing.md        $DOCUSAURUS_REPO/contributing/0-contributing.md
