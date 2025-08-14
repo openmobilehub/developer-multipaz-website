@@ -154,11 +154,11 @@ now is captured from the system clock. The credential is considered signed at si
 Get pre-generated Authority Certificate Authority (IACA) certificate and private_key ,the certificate will be shared to Verifier so holder will be in Verifier's issuer trust list
 ```kotlin
 val iacaCert = X509Cert.fromPem(
-   iaca_Cert
+   getIaca_Cert()
 )
 Logger.i(appName, iacaCert.toPem())
 val iacaKey = EcPrivateKey.fromPem(
-   iaca_private_key,
+   getIaca_Private_Key(),
    iacaCert.ecPublicKey
 )
 
@@ -225,12 +225,22 @@ if (DigitalCredentials.Default.available) {
 
 The Holder app also needs to add the Verifier (Reader) certificate to its trust list. This ensures that the Holder can recognize and trust the Verifier during credential sharing. The Verifier's certificate can be downloaded from the Multipaz Verifier [website](https://verifier.multipaz.org/identityreaderbackend/). Below is the code snippet demonstrating how to add the Verifier's certificate to the trust list:
 ```
-   addTrustPoint(
+        addTrustPoint(
                     TrustPoint(
                         certificate = X509Cert.fromPem(
-                            getReader_Root_Cert().trimIndent().trim() # Verifier's cert
+                            getReader_Root_Cert().trimIndent().trim()
                         ),
-                        displayName = "OWF Multipaz TestApp",
+                        displayName = "OWF Multipaz Reader App",
+                        displayIcon = null,
+                        privacyPolicyUrl = "https://apps.multipaz.org"
+                    )
+                )
+                addTrustPoint(
+                    TrustPoint(
+                        certificate = X509Cert.fromPem(
+                            getReader_Root_Cert_for_untrust_device().trimIndent().trim()
+                        ),
+                        displayName = "OWF Multipaz Reader App",
                         displayIcon = null,
                         privacyPolicyUrl = "https://apps.multipaz.org"
                     )
