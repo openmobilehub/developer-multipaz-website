@@ -154,11 +154,11 @@ now is captured from the system clock. The credential is considered signed at si
 Get pre-generated Authority Certificate Authority (IACA) certificate and private_key ,the certificate will be shared to Verifier so holder will be in Verifier's issuer trust list
 ```kotlin
 val iacaCert = X509Cert.fromPem(
-   getIaca_Cert()
+    Res.readBytes("files/iaca_certificate.pem").decodeToString().trimIndent().trim()
 )
 Logger.i(appName, iacaCert.toPem())
 val iacaKey = EcPrivateKey.fromPem(
-   getIaca_Private_Key(),
+   Res.readBytes("files/iaca_private_key.pem").decodeToString().trimIndent().trim(),
    iacaCert.ecPublicKey
 )
 
@@ -226,11 +226,12 @@ if (DigitalCredentials.Default.available) {
 The Holder app also needs to add the Verifier (Reader) certificate to its trust list. This ensures that the Holder can recognize and trust the Verifier during credential sharing. The Verifier's certificate can be downloaded from the Multipaz Verifier [website](https://verifier.multipaz.org/identityreaderbackend/). Below is the code snippet demonstrating how to add the Verifier's certificate to the trust list:
 ```
         addTrustPoint(
+                 addTrustPoint(
                     TrustPoint(
                         certificate = X509Cert.fromPem(
-                            getReader_Root_Cert().trimIndent().trim()
+                            Res.readBytes("files/test_app_reader_root_certificate.pem").decodeToString().trimIndent().trim()
                         ),
-                        displayName = "OWF Multipaz Reader App",
+                        displayName = "OWF Multipaz Test App Reader",
                         displayIcon = null,
                         privacyPolicyUrl = "https://apps.multipaz.org"
                     )
@@ -238,9 +239,19 @@ The Holder app also needs to add the Verifier (Reader) certificate to its trust 
                 addTrustPoint(
                     TrustPoint(
                         certificate = X509Cert.fromPem(
-                            getReader_Root_Cert_for_untrust_device().trimIndent().trim()
+                            Res.readBytes("files/reader_root_certificate.pem").decodeToString().trimIndent().trim()
                         ),
-                        displayName = "OWF Multipaz Reader App",
+                        displayName = "Multipaz Identity Reader (Trusted Devices)",
+                        displayIcon = null,
+                        privacyPolicyUrl = "https://apps.multipaz.org"
+                    )
+                )
+                addTrustPoint(
+                    TrustPoint(
+                        certificate = X509Cert.fromPem(
+                            Res.readBytes("files/reader_root_certificate.pem").decodeToString().trimIndent().trim()
+                        ),
+                        displayName = "Multipaz Identity Reader (UnTrusted Devices)",
                         displayIcon = null,
                         privacyPolicyUrl = "https://apps.multipaz.org"
                     )
