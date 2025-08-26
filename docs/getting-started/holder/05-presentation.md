@@ -213,4 +213,232 @@ private fun showQrCode(deviceEngagement: MutableState<ByteString?>) {
 
 Refer to [this](https://github.com/openmobilehub/multipaz-getting-started-sample/blob/7500a92ead53cdeca3c6131000c3f7ec07284349/composeApp/src/commonMain/kotlin/org/multipaz/get_started/App.kt#L286-L312) part for the implementation of this section in this guide.
 
-By following these steps, you can request necessary permissions, manage the credential presentment flow, and generate device engagement QR codes for verifiers.
+### NFC Engagement (Android Only)
+
+NFC (Near Field Communication) provides a contactless mechanism for credential sharing, allowing users to simply "tap" their phone to a verifier device to present credentials. This is particularly useful for Android devices, offering fast and secure sharing without requiring manual UI interaction.
+
+The NFC implementation consists of three main components:
+
+* **`NfcActivity`** - Handles the credential presentation lifecycle triggered by NFC tap
+* **`NdefService`** - System-level service that binds the NFC engagement mechanism  
+* **AndroidManifest.xml** - Declares NFC capabilities and configures the app's NFC role
+
+#### NFC Permissions and Requirements
+
+First, add the required NFC permissions to your `AndroidManifest.xml`:
+
+```xml
+<!-- NFC permissions -->
+<uses-permission android:name="android.permission.NFC" />
+<uses-feature
+    android:name="android.hardware.nfc"
+    android:required="true" />
+```
+
+#### NfcActivity Implementation
+
+Create an `NfcActivity` that extends `MdocNfcPresentmentActivity` for ISO/IEC 18013-5:2021 presentment when using NFC engagement:
+
+**NfcActivity.kt**
+
+```kotlin
+import org.multipaz.android.mdoc.presentment.MdocNfcPresentmentActivity
+import org.multipaz.android.mdoc.presentment.Settings
+import androidx.compose.runtime.Composable
+
+class NfcActivity : MdocNfcPresentmentActivity() {
+    
+    override fun ApplicationTheme(content: @Composable (() -> Unit)) {
+        content()
+    }
+
+    override suspend fun getSettings(): Settings {
+        val app = App.getInstance()
+        app.init()
+        return Settings(
+            appName = app.appName,
+            appIcon = app.appIcon,
+            promptModel = App.promptModel,
+            documentTypeRepository = app.documentTypeRepository,
+            presentmentSource = app.presentmentSource
+        )
+    }
+}
+```
+
+This activity launches when the device is tapped against a verifier. It initializes the SDK and returns the appropriate settings, including app name, app icon, prompt model, and presentment source.
+
+#### NdefService Implementation
+
+Create an `NdefService` that extends `MdocNdefService` for NFC engagement according to ISO/IEC 18013-5:2021:
+
+**NdefService.kt**
+
+```kotlin
+import org.multipaz.android.mdoc.nfc.MdocNdefService
+import org.multipaz.android.mdoc.nfc.Settings
+import org.multipaz.android.mdoc.transport.MdocTransportOptions
+import org.multipaz.crypto.EcCurve
+
+class NdefService : MdocNdefService() {
+    override suspend fun getSettings(): Settings {
+        return Settings(
+            sessionEncryptionCurve = EcCurve.P256,
+            allowMultipleRequests = false,
+            useNegotiatedHandover = true,
+            negotiatedHandoverPreferredOrder = listOf(
+                "ble:central_client_mode:",
+                "ble:peripheral_server_mode:"
+            ),
+            transportOptions = MdocTransportOptions(bleUseL2CAP = true),
+            promptModel = App.promptModel,
+            presentmentActivityClass = NfcActivity::class.java
+        )
+    }
+}
+```
+
+The `negotiatedHandoverPreferredOrder` is set to select BLE. In this configuration, NFC establishes the initial connection but no credential data is transferred at this stage. The NFC connection is used to negotiate which transport method to use, and since BLE is selected, a BLE connection is established for actual credential sharing.
+
+#### AndroidManifest.xml Configuration
+
+Add the NFC activity and service declarations to your `AndroidManifest.xml`:
+
+```xml
+<!-- NFC Activity for credential presentation -->
+<activity
+    android:name=".NfcActivity"
+    android:showWhenLocked="true"
+    android:turnScreenOn="true"
+    android:exported="true"
+    android:launchMode="singleInstance"
+    android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
+
+<!-- NFC Service for APDU communication -->
+<service
+    android:name=".NdefService"
+    android:exported="true"
+    android:permission="android.permission.BIND_NFC_SERVICE">
+    <intent-filter>
+        <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.nfc.cardemulation.host_apdu_service"
+        android:resource="@xml/nfc_ndef_service" />
+</service>
+```
+
+#### NFC AID Filter Configuration
+
+Create a file `res/xml/nfc_ndef_service.xml` to configure the AID (Application Identifier) filter. This allows your Android device to act as an NFC Type 4 Tag and share credentials securely with a verifier:
+
+**res/xml/nfc_ndef_service.xml**
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:description="@string/nfc_ndef_service_description"
+    android:requireDeviceUnlock="false"
+    android:requireDeviceScreenOn="false"
+    tools:ignore="UnusedAttribute">
+
+    <aid-group android:description="@string/nfc_ndef_service_aid_group_description"
+        android:category="other">
+        <!-- NFC Type 4 Tag - matches ISO 18013-5 mDL standard -->
+        <aid-filter android:name="D2760000850101"/>
+    </aid-group>
+</host-apdu-service>
+```
+
+**Configuration Attributes:**
+- `android:requireDeviceUnlock`: `false` — app can respond even when device is locked
+- `android:requireDeviceScreenOn`: `false` — screen can be off during NFC interaction
+- `aid-filter`: Identifies the NFC Type 4 Tag according to ISO 18013-5 mDL standard
+
+#### String Resources
+
+Add the required string resources to your `res/values/strings.xml`:
+
+```xml
+<string name="nfc_ndef_service_description">Multipaz NFC Service</string>
+<string name="nfc_ndef_service_aid_group_description">Multipaz mDL NFC</string>
+```
+
+#### NFC with Connection Methods
+
+To support NFC alongside other connection methods, include `MdocConnectionMethodNfc` in your connection methods list:
+
+```kotlin
+val connectionMethods = listOf(
+    MdocConnectionMethodBle(
+        supportsPeripheralServerMode = false,
+        supportsCentralClientMode = true,
+        peripheralServerModeUuid = null,
+        centralClientModeUuid = UUID.randomUUID(),
+    ),
+    MdocConnectionMethodNfc() // Add NFC support
+)
+```
+
+#### Error Handling and Timeouts
+
+When implementing NFC functionality, consider these error scenarios:
+
+**NFC Not Available:**
+```kotlin
+private fun isNfcAvailable(): Boolean {
+    val nfcManager = getSystemService(Context.NFC_SERVICE) as NfcManager
+    return nfcManager.defaultAdapter?.isEnabled == true
+}
+
+// Check before attempting NFC operations
+if (!isNfcAvailable()) {
+    // Show user guidance to enable NFC
+    // Fallback to QR code or BLE presentation
+}
+```
+
+**NFC Timeout Handling:**
+```kotlin
+// Configure timeout settings in NdefService
+override suspend fun getSettings(): Settings {
+    return Settings(
+        // ... other settings
+        sessionEncryptionCurve = EcCurve.P256,
+        allowMultipleRequests = false,
+        // Implement timeout logic in your presentation flow
+    )
+}
+```
+
+#### Testing NFC Functionality
+
+To test NFC credential sharing:
+
+1. **Enable NFC** on both holder and verifier devices
+2. **Install your app** with the NFC configuration on the holder device
+3. **Use a compatible verifier** (such as Multipaz Identity Reader)
+4. **Tap devices together** - the holder device should automatically wake and present the credential selection UI
+5. **Verify credential transfer** - check that credentials are successfully shared via the negotiated transport (typically BLE)
+
+**Testing Checklist:**
+- [ ] NFC is enabled on the device
+- [ ] App has NFC permissions
+- [ ] Device wakes up when tapped to verifier
+- [ ] Credential selection UI appears
+- [ ] Credentials are successfully shared
+- [ ] Error handling works for NFC unavailable scenarios
+
+#### Verifying Credential Authenticity
+
+The NFC implementation automatically handles credential verification through the Multipaz SDK:
+
+- **Device Authentication**: Ensures the credential comes from a legitimate device
+- **Issuer Authentication**: Verifies the credential was issued by a trusted authority  
+- **Certificate Chain Validation**: Checks the complete trust chain
+- **Temporal Validity**: Confirms the credential is currently valid
+
+These verifications are handled automatically by the `presentmentSource` and related trust managers configured in your app.
+
+By following these steps, you can implement comprehensive NFC support for credential sharing in your Multipaz holder application, providing users with a seamless "tap to share" experience while maintaining security and compliance with ISO/IEC 18013-5:2021 standards.
