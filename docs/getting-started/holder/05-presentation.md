@@ -357,7 +357,12 @@ By following these steps, you configure your Android app to support secure NFC-b
 
 ### **Testing**
 
-To test the NFC reader flow. We need another device with a verifier app installed; say, MpzIdentityReader or Multipaz TestApp (you can download them from [https://apps.multipaz.org](https://apps.multipaz.org/)). The reader flow includes the following steps:
+To test the NFC reader flow, we need two devices.
+
+* One device with the the holder app we are currently working on (multipaz getting started sample)
+* And another device with a verifier app installed; say, MpzIdentityReader or Multipaz TestApp (you can download them from https://apps.multipaz.org).
+
+The reader flow includes the following steps:
 
 * Tap the reader device with the verifier device once
 * If multiple holder apps are installed, a bottom sheet appears to confirm which app to request the credentials from.
