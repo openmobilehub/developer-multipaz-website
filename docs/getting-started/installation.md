@@ -159,6 +159,8 @@ class App {
 
 ### Update `MainActivity.kt`
 
+Update `MainActivity` to reflect the changes from `App.kt`, along with the following additions for the Multipaz library.
+
 * Inside the `onCreate()` method in `kotlin/MainActivity` class, call the `initializeApplication(applicationContext)` function provided by the Multipaz library.
     * This ensures the SDK has access to a valid application-level context, which is required for internal operations like secure storage and credential handling. Make sure this is done only once in the app lifecycle, ideally during app startup.
 * Modify update `MainActivity` to extend `FragmentActivity`.
@@ -172,11 +174,28 @@ class MainActivity : FragmentActivity() { // use FragmentActivity
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        initializeApplication(this.applicationContext)
-        setContent {
-            App()
+        initializeApplication(this.applicationContext) // initialize Multipaz
+
+        lifecycle.coroutineScope.launch {
+            val app = App.getInstance()
+            app.init()
+            setContent {
+                app.Content()
+            }
         }
     }
+}
+```
+
+### Update `iOSMain/MainViewController.kt`
+
+Update `MainViewController` to reflect the changes from `App.kt`.
+
+```kotlin
+private val app = App.getInstance()
+
+fun MainViewController() = ComposeUIViewController {
+    app.Content()
 }
 ```
 
